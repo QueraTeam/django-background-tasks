@@ -37,7 +37,7 @@ See `Read the docs`_.
 .. _Read the docs: http://django-background-tasks.readthedocs.io/en/latest/
 
 Donations
-========= 
+=========
 
 ``django-background-tasks`` is free software. If you find it useful and would like to give back, please consider to make a donation using Bitcoin_ or Paypal_. Thank you!
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from datetime import timedelta
 from hashlib import sha1
 import json
@@ -6,13 +5,12 @@ import logging
 import os
 import traceback
 
-from compat import StringIO
-from compat.models import GenericForeignKey
+from io import StringIO
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
-from six import python_2_unicode_compatible
 
 from background_task.exceptions import InvalidTaskError
 from background_task.settings import app_settings
@@ -24,7 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class TaskQuerySet(models.QuerySet):
-
     def created_by(self, creator):
         """
         :return: A Task queryset filtered by creator
@@ -37,7 +34,6 @@ class TaskQuerySet(models.QuerySet):
 
 
 class TaskManager(models.Manager):
-
     def get_queryset(self):
         return TaskQuerySet(self.model, using=self._db)
 
@@ -50,14 +46,13 @@ class TaskManager(models.Manager):
         if queue:
             qs = qs.filter(queue=queue)
         ready = qs.filter(run_at__lte=now, failed_at=None)
-        _priority_ordering = '{}priority'.format(app_settings.BACKGROUND_TASK_PRIORITY_ORDERING)
-        ready = ready.order_by(_priority_ordering, 'run_at')
+        _priority_ordering = f"{app_settings.BACKGROUND_TASK_PRIORITY_ORDERING}priority"
+        ready = ready.order_by(_priority_ordering, "run_at")
 
         if app_settings.BACKGROUND_TASK_RUN_ASYNC:
             currently_failed = self.failed().count()
             currently_locked = self.locked(now).count()
-            count = app_settings.BACKGROUND_TASK_ASYNC_THREADS - \
-                                    (currently_locked - currently_failed)
+            count = app_settings.BACKGROUND_TASK_ASYNC_THREADS - (currently_locked - currently_failed)
             if count > 0:
                 ready = ready[:count]
             else:
@@ -86,10 +81,20 @@ class TaskManager(models.Manager):
         qs = self.get_queryset()
         return qs.filter(failed_at__isnull=False)
 
-    def new_task(self, task_name, args=None, kwargs=None,
-                 run_at=None, priority=0, queue=None, verbose_name=None,
-                 creator=None, repeat=None, repeat_until=None,
-                 remove_existing_tasks=False):
+    def new_task(
+        self,
+        task_name,
+        args=None,
+        kwargs=None,
+        run_at=None,
+        priority=0,
+        queue=None,
+        verbose_name=None,
+        creator=None,
+        repeat=None,
+        repeat_until=None,
+        remove_existing_tasks=False,
+    ):
         """
         If `remove_existing_tasks` is True, all unlocked tasks with the identical task hash will be removed.
         The attributes `repeat` and `repeat_until` are not supported at the moment.
@@ -99,28 +104,29 @@ class TaskManager(models.Manager):
         if run_at is None:
             run_at = timezone.now()
         task_params = json.dumps((args, kwargs), sort_keys=True)
-        s = "%s%s" % (task_name, task_params)
-        task_hash = sha1(s.encode('utf-8')).hexdigest()
+        s = f"{task_name}{task_params}"
+        task_hash = sha1(s.encode("utf-8")).hexdigest()
         if remove_existing_tasks:
             Task.objects.filter(task_hash=task_hash, locked_at__isnull=True).delete()
-        return Task(task_name=task_name,
-                    task_params=task_params,
-                    task_hash=task_hash,
-                    priority=priority,
-                    run_at=run_at,
-                    queue=queue,
-                    verbose_name=verbose_name,
-                    creator=creator,
-                    repeat=repeat or Task.NEVER,
-                    repeat_until=repeat_until,
-                    )
+        return Task(
+            task_name=task_name,
+            task_params=task_params,
+            task_hash=task_hash,
+            priority=priority,
+            run_at=run_at,
+            queue=queue,
+            verbose_name=verbose_name,
+            creator=creator,
+            repeat=repeat or Task.NEVER,
+            repeat_until=repeat_until,
+        )
 
     def get_task(self, task_name, args=None, kwargs=None):
         args = args or ()
         kwargs = kwargs or {}
         task_params = json.dumps((args, kwargs), sort_keys=True)
-        s = "%s%s" % (task_name, task_params)
-        task_hash = sha1(s.encode('utf-8')).hexdigest()
+        s = f"{task_name}{task_params}"
+        task_hash = sha1(s.encode("utf-8")).hexdigest()
         qs = self.get_queryset()
         return qs.filter(task_hash=task_hash)
 
@@ -128,7 +134,6 @@ class TaskManager(models.Manager):
         return self.get_task(task_name, args, kwargs).delete()
 
 
-@python_2_unicode_compatible
 class Task(models.Model):
     # the "name" of the task/function to be run
     task_name = models.CharField(max_length=190, db_index=True)
@@ -153,19 +158,18 @@ class Task(models.Model):
     EVERY_4_WEEKS = 4 * WEEKLY
     NEVER = 0
     REPEAT_CHOICES = (
-        (HOURLY, 'hourly'),
-        (DAILY, 'daily'),
-        (WEEKLY, 'weekly'),
-        (EVERY_2_WEEKS, 'every 2 weeks'),
-        (EVERY_4_WEEKS, 'every 4 weeks'),
-        (NEVER, 'never'),
+        (HOURLY, "hourly"),
+        (DAILY, "daily"),
+        (WEEKLY, "weekly"),
+        (EVERY_2_WEEKS, "every 2 weeks"),
+        (EVERY_4_WEEKS, "every 4 weeks"),
+        (NEVER, "never"),
     )
     repeat = models.BigIntegerField(choices=REPEAT_CHOICES, default=NEVER)
     repeat_until = models.DateTimeField(null=True, blank=True)
 
     # the "name" of the queue this is to be run on
-    queue = models.CharField(max_length=190, db_index=True,
-                             null=True, blank=True)
+    queue = models.CharField(max_length=190, db_index=True, null=True, blank=True)
 
     # how many times the task has been tried
     attempts = models.IntegerField(default=0, db_index=True)
@@ -175,16 +179,14 @@ class Task(models.Model):
     last_error = models.TextField(blank=True)
 
     # details of who's trying to run the task at the moment
-    locked_by = models.CharField(max_length=64, db_index=True,
-                                 null=True, blank=True)
+    locked_by = models.CharField(max_length=64, db_index=True, null=True, blank=True)
     locked_at = models.DateTimeField(db_index=True, null=True, blank=True)
 
     creator_content_type = models.ForeignKey(
-        ContentType, null=True, blank=True,
-        related_name='background_task', on_delete=models.CASCADE
+        ContentType, null=True, blank=True, related_name="background_task", on_delete=models.CASCADE
     )
     creator_object_id = models.PositiveIntegerField(null=True, blank=True)
-    creator = GenericForeignKey('creator_content_type', 'creator_object_id')
+    creator = GenericForeignKey("creator_content_type", "creator_object_id")
 
     objects = TaskManager()
 
@@ -201,6 +203,7 @@ class Task(models.Model):
                 return False
         else:
             return None
+
     locked_by_pid_running.boolean = True
 
     def has_error(self):
@@ -208,12 +211,13 @@ class Task(models.Model):
         Check if the last_error field is empty.
         """
         return bool(self.last_error)
+
     has_error.boolean = True
 
     def params(self):
         args, kwargs = json.loads(self.task_params)
         # need to coerce kwargs keys to str
-        kwargs = dict((str(k), v) for k, v in kwargs.items())
+        kwargs = {str(k): v for k, v in kwargs.items()}
         return args, kwargs
 
     def lock(self, locked_by):
@@ -241,32 +245,31 @@ class Task(models.Model):
         return self.repeat > self.NEVER
 
     def reschedule(self, type, err, traceback):
-        '''
+        """
         Set a new time to run the task in future, or create a CompletedTask and delete the Task
         if it has reached the maximum of allowed attempts
-        '''
+        """
         self.last_error = self._extract_error(type, err, traceback)
         self.increment_attempts()
         if self.has_reached_max_attempts() or isinstance(err, InvalidTaskError):
             self.failed_at = timezone.now()
-            logger.warning('Marking task %s as failed', self)
+            logger.warning("Marking task %s as failed", self)
             completed = self.create_completed_task()
             task_failed.send(sender=self.__class__, task_id=self.id, completed_task=completed)
             self.delete()
         else:
-            backoff = timedelta(seconds=(self.attempts ** 4) + 5)
+            backoff = timedelta(seconds=(self.attempts**4) + 5)
             self.run_at = timezone.now() + backoff
-            logger.warning('Rescheduling task %s for %s later at %s', self,
-                backoff, self.run_at)
+            logger.warning("Rescheduling task %s for %s later at %s", self, backoff, self.run_at)
             task_rescheduled.send(sender=self.__class__, task=self)
             self.locked_by = None
             self.locked_at = None
             self.save()
 
     def create_completed_task(self):
-        '''
+        """
         Returns a new CompletedTask instance with the same values
-        '''
+        """
         completed_task = CompletedTask(
             task_name=self.task_name,
             task_params=self.task_params,
@@ -321,20 +324,16 @@ class Task(models.Model):
     def save(self, *arg, **kw):
         # force NULL rather than empty string
         self.locked_by = self.locked_by or None
-        return super(Task, self).save(*arg, **kw)
+        return super().save(*arg, **kw)
 
     def __str__(self):
-        return u'{}'.format(self.verbose_name or self.task_name)
+        return f"{self.verbose_name or self.task_name}"
 
     class Meta:
-        db_table = 'background_task'
-
-
-
+        db_table = "background_task"
 
 
 class CompletedTaskQuerySet(models.QuerySet):
-
     def created_by(self, creator):
         """
         :return: A CompletedTask queryset filtered by creator
@@ -373,7 +372,6 @@ class CompletedTaskQuerySet(models.QuerySet):
         return qs
 
 
-@python_2_unicode_compatible
 class CompletedTask(models.Model):
     # the "name" of the task/function to be run
     task_name = models.CharField(max_length=190, db_index=True)
@@ -393,8 +391,7 @@ class CompletedTask(models.Model):
     repeat_until = models.DateTimeField(null=True, blank=True)
 
     # the "name" of the queue this is to be run on
-    queue = models.CharField(max_length=190, db_index=True,
-                             null=True, blank=True)
+    queue = models.CharField(max_length=190, db_index=True, null=True, blank=True)
 
     # how many times the task has been tried
     attempts = models.IntegerField(default=0, db_index=True)
@@ -404,16 +401,14 @@ class CompletedTask(models.Model):
     last_error = models.TextField(blank=True)
 
     # details of who's trying to run the task at the moment
-    locked_by = models.CharField(max_length=64, db_index=True,
-                                 null=True, blank=True)
+    locked_by = models.CharField(max_length=64, db_index=True, null=True, blank=True)
     locked_at = models.DateTimeField(db_index=True, null=True, blank=True)
 
     creator_content_type = models.ForeignKey(
-        ContentType, null=True, blank=True,
-        related_name='completed_background_task', on_delete=models.CASCADE
+        ContentType, null=True, blank=True, related_name="completed_background_task", on_delete=models.CASCADE
     )
     creator_object_id = models.PositiveIntegerField(null=True, blank=True)
-    creator = GenericForeignKey('creator_content_type', 'creator_object_id')
+    creator = GenericForeignKey("creator_content_type", "creator_object_id")
 
     objects = CompletedTaskQuerySet.as_manager()
 
@@ -430,6 +425,7 @@ class CompletedTask(models.Model):
                 return False
         else:
             return None
+
     locked_by_pid_running.boolean = True
 
     def has_error(self):
@@ -437,10 +433,11 @@ class CompletedTask(models.Model):
         Check if the last_error field is empty.
         """
         return bool(self.last_error)
+
     has_error.boolean = True
 
     def __str__(self):
-        return u'{} - {}'.format(
+        return "{} - {}".format(
             self.verbose_name or self.task_name,
             self.run_at,
         )

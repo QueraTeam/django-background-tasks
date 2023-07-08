@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 import time
 from datetime import timedelta, datetime
-from mock import patch, Mock
+from unittest.mock import patch, Mock
 
 from django.db.utils import OperationalError
 from django.contrib.auth.models import User
@@ -43,6 +42,7 @@ def mocked_run_next_task(queue=None):
         time.sleep(1)
     return val
 
+
 run_task = mocked_run_task
 run_next_task = mocked_run_next_task
 
@@ -56,7 +56,6 @@ def record_task(*arg, **kw):
 
 
 class TestBackgroundDecorator(TransactionTestCase):
-
     def test_get_proxy(self):
         proxy = tasks.background()(empty_task)
         self.assertNotEqual(proxy, empty_task)
@@ -69,19 +68,19 @@ class TestBackgroundDecorator(TransactionTestCase):
 
     def test_default_name(self):
         proxy = tasks.background()(empty_task)
-        self.assertEqual(proxy.name, 'background_task.tests.test_tasks.empty_task')
+        self.assertEqual(proxy.name, "background_task.tests.test_tasks.empty_task")
 
         proxy = tasks.background()(record_task)
-        self.assertEqual(proxy.name, 'background_task.tests.test_tasks.record_task')
+        self.assertEqual(proxy.name, "background_task.tests.test_tasks.record_task")
 
         proxy = tasks.background(empty_task)
         # print proxy
         self.assertTrue(isinstance(proxy, TaskProxy))
-        self.assertEqual(proxy.name, 'background_task.tests.test_tasks.empty_task')
+        self.assertEqual(proxy.name, "background_task.tests.test_tasks.empty_task")
 
     def test_specified_name(self):
-        proxy = tasks.background(name='mytask')(empty_task)
-        self.assertEqual(proxy.name, 'mytask')
+        proxy = tasks.background(name="mytask")(empty_task)
+        self.assertEqual(proxy.name, "mytask")
 
     def test_task_function(self):
         proxy = tasks.background()(empty_task)
@@ -100,19 +99,17 @@ class TestBackgroundDecorator(TransactionTestCase):
 
     def test_str(self):
         proxy = tasks.background()(empty_task)
-        self.assertEqual(
-            u'TaskProxy(background_task.tests.test_tasks.empty_task)',
-            str(proxy)
-        )
+        self.assertEqual("TaskProxy(background_task.tests.test_tasks.empty_task)", str(proxy))
 
     def test_shortcut(self):
-        '''check shortcut to decorator works'''
+        """check shortcut to decorator works"""
         proxy = background()(empty_task)
-        self.failIfEqual(proxy, empty_task)
+        self.assertNotEqual(proxy, empty_task)
         self.assertEqual(proxy.task_function, empty_task)
 
     def test_launch_sync(self):
-        ''' Check launch original function in synchronous mode '''
+        """Check launch original function in synchronous mode"""
+
         @background
         def add(x, y):
             return x + y
@@ -121,29 +118,27 @@ class TestBackgroundDecorator(TransactionTestCase):
         ct = CompletedTask.objects.count()
         answer = add.now(2, 3)
         self.assertEqual(answer, 5)
-        self.assertEqual(Task.objects.count(), t, 'Task was created')
-        self.assertEqual(CompletedTask.objects.count(), ct, 'Completed task was created')
+        self.assertEqual(Task.objects.count(), t, "Task was created")
+        self.assertEqual(CompletedTask.objects.count(), ct, "Completed task was created")
 
 
 class TestTaskProxy(TransactionTestCase):
-
     def setUp(self):
-        super(TestTaskProxy, self).setUp()
+        super().setUp()
         self.proxy = tasks.background()(record_task)
 
     def test_run_task(self):
         run_task(self.proxy.name, [], {})
         self.assertEqual(((), {}), _recorded.pop())
 
-        run_task(self.proxy.name, ['hi'], {})
-        self.assertEqual((('hi',), {}), _recorded.pop())
+        run_task(self.proxy.name, ["hi"], {})
+        self.assertEqual((("hi",), {}), _recorded.pop())
 
-        run_task(self.proxy.name, [], {'kw': 1})
-        self.assertEqual(((), {'kw': 1}), _recorded.pop())
+        run_task(self.proxy.name, [], {"kw": 1})
+        self.assertEqual(((), {"kw": 1}), _recorded.pop())
 
 
 class TestTaskSchedule(TransactionTestCase):
-
     def test_priority(self):
         self.assertEqual(0, TaskSchedule().priority)
         self.assertEqual(0, TaskSchedule(priority=0).priority)
@@ -151,9 +146,9 @@ class TestTaskSchedule(TransactionTestCase):
         self.assertEqual(2, TaskSchedule(priority=2).priority)
 
     def _within_one_second(self, d1, d2):
-        self.failUnless(isinstance(d1, datetime))
-        self.failUnless(isinstance(d2, datetime))
-        self.failUnless(abs(d1 - d2) <= timedelta(seconds=1))
+        self.assertTrue(isinstance(d1, datetime))
+        self.assertTrue(isinstance(d2, datetime))
+        self.assertTrue(abs(d1 - d2) <= timedelta(seconds=1))
 
     def test_run_at(self):
         for schedule in [None, 0, timedelta(seconds=0)]:
@@ -177,13 +172,12 @@ class TestTaskSchedule(TransactionTestCase):
 
     def test_create(self):
         fixed_dt = timezone.now() + timedelta(seconds=10)
-        schedule = TaskSchedule.create({'run_at': fixed_dt})
+        schedule = TaskSchedule.create({"run_at": fixed_dt})
         self.assertEqual(schedule.run_at, fixed_dt)
         self.assertEqual(0, schedule.priority)
         self.assertEqual(TaskSchedule.SCHEDULE, schedule.action)
 
-        schedule = {'run_at': fixed_dt, 'priority': 2,
-                    'action': TaskSchedule.RESCHEDULE_EXISTING}
+        schedule = {"run_at": fixed_dt, "priority": 2, "action": TaskSchedule.RESCHEDULE_EXISTING}
         schedule = TaskSchedule.create(schedule)
         self.assertEqual(schedule.run_at, fixed_dt)
         self.assertEqual(2, schedule.priority)
@@ -193,8 +187,7 @@ class TestTaskSchedule(TransactionTestCase):
         self._within_one_second(schedule.run_at, timezone.now())
 
         schedule = TaskSchedule.create(10)
-        self._within_one_second(schedule.run_at,
-                                timezone.now() + timedelta(seconds=10))
+        self._within_one_second(schedule.run_at, timezone.now() + timedelta(seconds=10))
 
         schedule = TaskSchedule.create(TaskSchedule(run_at=fixed_dt))
         self.assertEqual(schedule.run_at, fixed_dt)
@@ -202,39 +195,33 @@ class TestTaskSchedule(TransactionTestCase):
         self.assertEqual(TaskSchedule.SCHEDULE, schedule.action)
 
     def test_merge(self):
-        default = TaskSchedule(run_at=10, priority=2,
-                               action=TaskSchedule.RESCHEDULE_EXISTING)
+        default = TaskSchedule(run_at=10, priority=2, action=TaskSchedule.RESCHEDULE_EXISTING)
         schedule = TaskSchedule.create(20).merge(default)
 
-        self._within_one_second(timezone.now() + timedelta(seconds=20),
-                                schedule.run_at)
+        self._within_one_second(timezone.now() + timedelta(seconds=20), schedule.run_at)
         self.assertEqual(2, schedule.priority)
         self.assertEqual(TaskSchedule.RESCHEDULE_EXISTING, schedule.action)
 
-        schedule = TaskSchedule.create({'priority': 0}).merge(default)
-        self._within_one_second(timezone.now() + timedelta(seconds=10),
-                                schedule.run_at)
+        schedule = TaskSchedule.create({"priority": 0}).merge(default)
+        self._within_one_second(timezone.now() + timedelta(seconds=10), schedule.run_at)
         self.assertEqual(0, schedule.priority)
         self.assertEqual(TaskSchedule.RESCHEDULE_EXISTING, schedule.action)
 
         action = TaskSchedule.CHECK_EXISTING
-        schedule = TaskSchedule.create({'action': action}).merge(default)
-        self._within_one_second(timezone.now() + timedelta(seconds=10),
-                                schedule.run_at)
+        schedule = TaskSchedule.create({"action": action}).merge(default)
+        self._within_one_second(timezone.now() + timedelta(seconds=10), schedule.run_at)
         self.assertEqual(2, schedule.priority)
         self.assertEqual(action, schedule.action)
 
     def test_repr(self):
-        self.assertEqual('TaskSchedule(run_at=10, priority=0)',
-                            repr(TaskSchedule(run_at=10, priority=0)))
+        self.assertEqual("TaskSchedule(run_at=10, priority=0)", repr(TaskSchedule(run_at=10, priority=0)))
 
 
 class TestSchedulingTasks(TransactionTestCase):
-
     def test_background_gets_scheduled(self):
         self.result = None
 
-        @tasks.background(name='test_background_gets_scheduled')
+        @tasks.background(name="test_background_gets_scheduled")
         def set_result(result):
             self.result = result
 
@@ -244,15 +231,14 @@ class TestSchedulingTasks(TransactionTestCase):
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
         task = all_tasks[0]
-        self.assertEqual('test_background_gets_scheduled', task.task_name)
-        self.assertEqual('[[1], {}]', task.task_params)
+        self.assertEqual("test_background_gets_scheduled", task.task_name)
+        self.assertEqual("[[1], {}]", task.task_params)
 
     def test_reschedule_existing(self):
 
         reschedule_existing = TaskSchedule.RESCHEDULE_EXISTING
 
-        @tasks.background(name='test_reschedule_existing',
-                         schedule=TaskSchedule(action=reschedule_existing))
+        @tasks.background(name="test_reschedule_existing", schedule=TaskSchedule(action=reschedule_existing))
         def reschedule_fn():
             pass
 
@@ -264,19 +250,18 @@ class TestSchedulingTasks(TransactionTestCase):
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
         task = all_tasks[0]
-        self.assertEqual('test_reschedule_existing', task.task_name)
+        self.assertEqual("test_reschedule_existing", task.task_name)
 
         # check task is scheduled for later on
         now = timezone.now()
-        self.failUnless(now + timedelta(seconds=89) < task.run_at)
-        self.failUnless(now + timedelta(seconds=91) > task.run_at)
+        self.assertTrue(now + timedelta(seconds=89) < task.run_at)
+        self.assertTrue(now + timedelta(seconds=91) > task.run_at)
 
     def test_check_existing(self):
 
         check_existing = TaskSchedule.CHECK_EXISTING
 
-        @tasks.background(name='test_check_existing',
-                         schedule=TaskSchedule(action=check_existing))
+        @tasks.background(name="test_check_existing", schedule=TaskSchedule(action=check_existing))
         def check_fn():
             pass
 
@@ -288,63 +273,61 @@ class TestSchedulingTasks(TransactionTestCase):
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
         task = all_tasks[0]
-        self.assertEqual('test_check_existing', task.task_name)
+        self.assertEqual("test_check_existing", task.task_name)
 
         # check new task is scheduled for the earlier time
         now = timezone.now()
-        self.failUnless(now - timedelta(seconds=1) < task.run_at)
-        self.failUnless(now + timedelta(seconds=1) > task.run_at)
+        self.assertTrue(now - timedelta(seconds=1) < task.run_at)
+        self.assertTrue(now + timedelta(seconds=1) > task.run_at)
 
 
 class TestTaskRunner(TransactionTestCase):
-
     def setUp(self):
-        super(TestTaskRunner, self).setUp()
+        super().setUp()
         self.runner = tasks._runner
 
     def test_get_task_to_run_no_tasks(self):
-        self.failIf(self.runner.get_task_to_run(tasks))
+        self.assertFalse(self.runner.get_task_to_run(tasks))
 
     def test_get_task_to_run(self):
-        task = Task.objects.new_task('mytask', (1), {})
+        task = Task.objects.new_task("mytask", (1), {})
         task.save()
-        self.failUnless(task.locked_by is None)
-        self.failUnless(task.locked_at is None)
+        self.assertTrue(task.locked_by is None)
+        self.assertTrue(task.locked_at is None)
 
         locked_task = self.runner.get_task_to_run(tasks)
-        self.failIf(locked_task is None)
-        self.failIf(locked_task.locked_by is None)
+        self.assertFalse(locked_task is None)
+        self.assertFalse(locked_task.locked_by is None)
         self.assertEqual(self.runner.worker_name, locked_task.locked_by)
-        self.failIf(locked_task.locked_at is None)
-        self.assertEqual('mytask', locked_task.task_name)
+        self.assertFalse(locked_task.locked_at is None)
+        self.assertEqual("mytask", locked_task.task_name)
 
 
 class TestTaskModel(TransactionTestCase):
-
     def test_lock_uncontested(self):
-        task = Task.objects.new_task('mytask')
+        task = Task.objects.new_task("mytask")
         task.save()
-        self.failUnless(task.locked_by is None)
-        self.failUnless(task.locked_at is None)
+        self.assertTrue(task.locked_by is None)
+        self.assertTrue(task.locked_at is None)
 
-        locked_task = task.lock('mylock')
-        self.assertEqual('mylock', locked_task.locked_by)
-        self.failIf(locked_task.locked_at is None)
+        locked_task = task.lock("mylock")
+        self.assertEqual("mylock", locked_task.locked_by)
+        self.assertFalse(locked_task.locked_at is None)
         self.assertEqual(task.pk, locked_task.pk)
 
     def test_lock_contested(self):
         # locking should actually look at db, not object
         # in memory
-        task = Task.objects.new_task('mytask')
+        task = Task.objects.new_task("mytask")
         task.save()
-        self.failIf(task.lock('mylock') is None)
+        self.assertFalse(task.lock("mylock") is None)
 
-        self.failUnless(task.lock('otherlock') is None)
+        self.assertTrue(task.lock("otherlock") is None)
 
     def test_lock_expired(self):
-        task = Task.objects.new_task('mytask')
+        task = Task.objects.new_task("mytask")
         task.save()
-        locked_task = task.lock('mylock')
+        locked_task = task.lock("mylock")
 
         # force expire the lock
         expire_by = timedelta(seconds=(app_settings.BACKGROUND_TASK_MAX_RUN_TIME + 2))
@@ -352,36 +335,36 @@ class TestTaskModel(TransactionTestCase):
         locked_task.save()
 
         # now try to get the lock again
-        self.failIf(task.lock('otherlock') is None)
+        self.assertFalse(task.lock("otherlock") is None)
 
     def test_str(self):
-        task = Task.objects.new_task('mytask')
-        self.assertEqual(u'mytask', str(task))
-        task = Task.objects.new_task('mytask', verbose_name="My Task")
-        self.assertEqual(u'My Task', str(task))
+        task = Task.objects.new_task("mytask")
+        self.assertEqual("mytask", str(task))
+        task = Task.objects.new_task("mytask", verbose_name="My Task")
+        self.assertEqual("My Task", str(task))
 
     def test_creator(self):
-        user = User.objects.create_user(username='bob', email='bob@example.com', password='12345')
-        task = Task.objects.new_task('mytask', creator=user)
+        user = User.objects.create_user(username="bob", email="bob@example.com", password="12345")
+        task = Task.objects.new_task("mytask", creator=user)
         task.save()
         self.assertEqual(task.creator, user)
 
     def test_repeat(self):
         repeat_until = timezone.now() + timedelta(days=1)
-        task = Task.objects.new_task('mytask', repeat=Task.HOURLY, repeat_until=repeat_until)
+        task = Task.objects.new_task("mytask", repeat=Task.HOURLY, repeat_until=repeat_until)
         task.save()
         self.assertEqual(task.repeat, Task.HOURLY)
         self.assertEqual(task.repeat_until, repeat_until)
 
     def test_create_completed_task(self):
         task = Task.objects.new_task(
-            task_name='mytask',
+            task_name="mytask",
             args=[1],
-            kwargs={'q': 's'},
+            kwargs={"q": "s"},
             priority=1,
-            queue='myqueue',
-            verbose_name='My Task',
-            creator=User.objects.create_user(username='bob', email='bob@example.com', password='12345'),
+            queue="myqueue",
+            verbose_name="My Task",
+            creator=User.objects.create_user(username="bob", email="bob@example.com", password="12345"),
         )
         task.save()
         completed_task = task.create_completed_task()
@@ -396,16 +379,15 @@ class TestTaskModel(TransactionTestCase):
 
 
 class TestTasks(TransactionTestCase):
-
     def setUp(self):
-        super(TestTasks, self).setUp()
+        super().setUp()
 
-        @tasks.background(name='set_fields')
+        @tasks.background(name="set_fields")
         def set_fields(**fields):
             for key, value in fields.items():
                 setattr(self, key, value)
 
-        @tasks.background(name='throws_error')
+        @tasks.background(name="throws_error")
         def throws_error():
             raise RuntimeError("an error")
 
@@ -413,29 +395,29 @@ class TestTasks(TransactionTestCase):
         self.throws_error = throws_error
 
     def test_run_next_task_nothing_scheduled(self):
-        self.failIf(run_next_task())
+        self.assertFalse(run_next_task())
 
     def test_run_next_task_one_task_scheduled(self):
         self.set_fields(worked=True)
-        self.failIf(hasattr(self, 'worked'))
+        self.assertFalse(hasattr(self, "worked"))
 
-        self.failUnless(run_next_task())
+        self.assertTrue(run_next_task())
 
-        self.failUnless(hasattr(self, 'worked'))
-        self.failUnless(self.worked)
+        self.assertTrue(hasattr(self, "worked"))
+        self.assertTrue(self.worked)
 
     def test_run_next_task_several_tasks_scheduled(self):
-        self.set_fields(one='1')
-        self.set_fields(two='2')
-        self.set_fields(three='3')
+        self.set_fields(one="1")
+        self.set_fields(two="2")
+        self.set_fields(three="3")
 
         for i in range(3):
-            self.failUnless(run_next_task())
+            self.assertTrue(run_next_task())
 
-        self.failIf(run_next_task())  # everything should have been run
+        self.assertFalse(run_next_task())  # everything should have been run
 
-        for field, value in [('one', '1'), ('two', '2'), ('three', '3')]:
-            self.failUnless(hasattr(self, field))
+        for field, value in [("one", "1"), ("two", "2"), ("three", "3")]:
+            self.assertTrue(hasattr(self, field))
             self.assertEqual(value, getattr(self, field))
 
     def test_run_next_task_error_handling(self):
@@ -446,35 +428,35 @@ class TestTasks(TransactionTestCase):
         original_task = all_tasks[0]
 
         # should run, but trigger error
-        self.failUnless(run_next_task())
+        self.assertTrue(run_next_task())
 
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
 
         failed_task = all_tasks[0]
         # should have an error recorded
-        self.failIfEqual('', failed_task.last_error)
-        self.failUnless(failed_task.failed_at is None)
+        self.assertNotEqual("", failed_task.last_error)
+        self.assertTrue(failed_task.failed_at is None)
         self.assertEqual(1, failed_task.attempts)
 
         # should have been rescheduled for the future
         # and no longer locked
-        self.failUnless(failed_task.run_at > original_task.run_at)
-        self.failUnless(failed_task.locked_by is None)
-        self.failUnless(failed_task.locked_at is None)
+        self.assertTrue(failed_task.run_at > original_task.run_at)
+        self.assertTrue(failed_task.locked_by is None)
+        self.assertTrue(failed_task.locked_at is None)
 
     def test_run_next_task_does_not_run_locked(self):
         self.set_fields(locked=True)
-        self.failIf(hasattr(self, 'locked'))
+        self.assertFalse(hasattr(self, "locked"))
 
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
         original_task = all_tasks[0]
-        original_task.lock('lockname')
+        original_task.lock("lockname")
 
-        self.failIf(run_next_task())
+        self.assertFalse(run_next_task())
 
-        self.failIf(hasattr(self, 'locked'))
+        self.assertFalse(hasattr(self, "locked"))
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
 
@@ -484,11 +466,11 @@ class TestTasks(TransactionTestCase):
         all_tasks = Task.objects.all()
         self.assertEqual(1, all_tasks.count())
         original_task = all_tasks[0]
-        locked_task = original_task.lock('lockname')
+        locked_task = original_task.lock("lockname")
 
-        self.failIf(run_next_task())
+        self.assertFalse(run_next_task())
 
-        self.failIf(hasattr(self, 'lock_overridden'))
+        self.assertFalse(hasattr(self, "lock_overridden"))
 
         # put lot time into past
         expire_by = timedelta(seconds=(app_settings.BACKGROUND_TASK_MAX_RUN_TIME + 2))
@@ -497,15 +479,14 @@ class TestTasks(TransactionTestCase):
 
         # so now we should be able to override the lock
         # and run the task
-        self.failUnless(run_next_task())
+        self.assertTrue(run_next_task())
         self.assertEqual(0, Task.objects.count())
 
-        self.failUnless(hasattr(self, 'lock_overridden'))
-        self.failUnless(self.lock_overridden)
+        self.assertTrue(hasattr(self, "lock_overridden"))
+        self.assertTrue(self.lock_overridden)
 
     def test_default_schedule_used_for_run_at(self):
-
-        @tasks.background(name='default_schedule_used_for_run_at', schedule=60)
+        @tasks.background(name="default_schedule_used_for_run_at", schedule=60)
         def default_schedule_used_for_time():
             pass
 
@@ -516,14 +497,12 @@ class TestTasks(TransactionTestCase):
         self.assertEqual(1, all_tasks.count())
         task = all_tasks[0]
 
-        self.failUnless(now < task.run_at)
-        self.failUnless((task.run_at - now) <= timedelta(seconds=61))
-        self.failUnless((task.run_at - now) >= timedelta(seconds=59))
+        self.assertTrue(now < task.run_at)
+        self.assertTrue((task.run_at - now) <= timedelta(seconds=61))
+        self.assertTrue((task.run_at - now) >= timedelta(seconds=59))
 
     def test_default_schedule_used_for_priority(self):
-
-        @tasks.background(name='default_schedule_used_for_priority',
-                          schedule={'priority': 2})
+        @tasks.background(name="default_schedule_used_for_priority", schedule={"priority": 2})
         def default_schedule_used_for_priority():
             pass
 
@@ -537,8 +516,7 @@ class TestTasks(TransactionTestCase):
     def test_non_default_schedule_used(self):
         default_run_at = timezone.now() + timedelta(seconds=90)
 
-        @tasks.background(name='non_default_schedule_used',
-                          schedule={'run_at': default_run_at, 'priority': 2})
+        @tasks.background(name="non_default_schedule_used", schedule={"run_at": default_run_at, "priority": 2})
         def default_schedule_used_for_priority():
             pass
 
@@ -551,9 +529,9 @@ class TestTasks(TransactionTestCase):
         self.assertEqual(run_at, task.run_at)
 
     def test_failed_at_set_after_MAX_ATTEMPTS(self):
-        @tasks.background(name='test_failed_at_set_after_MAX_ATTEMPTS')
+        @tasks.background(name="test_failed_at_set_after_MAX_ATTEMPTS")
         def failed_at_set_after_MAX_ATTEMPTS():
-            raise RuntimeError('failed')
+            raise RuntimeError("failed")
 
         failed_at_set_after_MAX_ATTEMPTS()
 
@@ -561,14 +539,14 @@ class TestTasks(TransactionTestCase):
         self.assertEqual(1, available.count())
         task = available[0]
 
-        self.failUnless(task.failed_at is None)
+        self.assertTrue(task.failed_at is None)
 
         task.attempts = app_settings.BACKGROUND_TASK_MAX_ATTEMPTS
         task.save()
 
         # task should be scheduled to run now
         # but will be marked as failed straight away
-        self.failUnless(run_next_task())
+        self.assertTrue(run_next_task())
 
         available = Task.objects.find_available()
         self.assertEqual(0, available.count())
@@ -577,33 +555,33 @@ class TestTasks(TransactionTestCase):
         self.assertEqual(0, all_tasks.count())
         self.assertEqual(1, CompletedTask.objects.count())
         completed_task = CompletedTask.objects.all()[0]
-        self.failIf(completed_task.failed_at is None)
+        self.assertFalse(completed_task.failed_at is None)
 
     def test_run_task_return_value(self):
-        return_value = self.set_fields(test='test')
+        return_value = self.set_fields(test="test")
         self.assertEqual(Task.objects.count(), 1)
         task = Task.objects.first()
         self.assertEqual(return_value, task)
         self.assertEqual(return_value.pk, task.pk)
 
     def test_verbose_name_param(self):
-        verbose_name = 'My Task'
-        task = self.set_fields(test='test1', verbose_name=verbose_name)
+        verbose_name = "My Task"
+        task = self.set_fields(test="test1", verbose_name=verbose_name)
         self.assertEqual(task.verbose_name, verbose_name)
 
     def test_creator_param(self):
-        user = User.objects.create_user(username='bob', email='bob@example.com', password='12345')
-        task = self.set_fields(test='test2', creator=user)
+        user = User.objects.create_user(username="bob", email="bob@example.com", password="12345")
+        task = self.set_fields(test="test2", creator=user)
         self.assertEqual(task.creator, user)
 
 
 class MaxAttemptsTestCase(TransactionTestCase):
-
     def setUp(self):
-        @tasks.background(name='failing task')
+        @tasks.background(name="failing task")
         def failing_task():
             raise Exception("error")
             # return 0 / 0
+
         self.failing_task = failing_task
         self.task1 = self.failing_task()
         self.task2 = self.failing_task()
@@ -639,12 +617,11 @@ class MaxAttemptsTestCase(TransactionTestCase):
 
 
 class InvalidTaskTestCase(TransactionTestCase):
-
     class SomeInvalidTaskError(InvalidTaskError):
         pass
 
     def setUp(self):
-        @tasks.background(name='failing task')
+        @tasks.background(name="failing task")
         def failing_task():
             raise self.SomeInvalidTaskError("invalid")
 
@@ -662,9 +639,10 @@ class InvalidTaskTestCase(TransactionTestCase):
 
 class ArgumentsWithDictTestCase(TransactionTestCase):
     def setUp(self):
-        @tasks.background(name='failing task')
+        @tasks.background(name="failing task")
         def task(d):
             pass
+
         self.task = task
 
     def test_task_with_dictionary_in_args(self):
@@ -679,43 +657,42 @@ class ArgumentsWithDictTestCase(TransactionTestCase):
 completed_named_queue_tasks = []
 
 
-@background(queue='named_queue')
+@background(queue="named_queue")
 def named_queue_task(message):
     completed_named_queue_tasks.append(message)
 
 
 class NamedQueueTestCase(TransactionTestCase):
-
     def test_process_queue(self):
-        named_queue_task('test1')
-        run_next_task(queue='named_queue')
-        self.assertIn('test1', completed_named_queue_tasks, msg='Task should be processed')
+        named_queue_task("test1")
+        run_next_task(queue="named_queue")
+        self.assertIn("test1", completed_named_queue_tasks, msg="Task should be processed")
 
     def test_process_all_tasks(self):
-        named_queue_task('test2')
+        named_queue_task("test2")
         run_next_task()
-        self.assertIn('test2', completed_named_queue_tasks, msg='Task should be processed')
+        self.assertIn("test2", completed_named_queue_tasks, msg="Task should be processed")
 
     def test_process_other_queue(self):
-        named_queue_task('test3')
-        run_next_task(queue='other_named_queue')
-        self.assertNotIn('test3', completed_named_queue_tasks, msg='Task should be ignored')
+        named_queue_task("test3")
+        run_next_task(queue="other_named_queue")
+        self.assertNotIn("test3", completed_named_queue_tasks, msg="Task should be ignored")
         run_next_task()
 
 
 class RepetitionTestCase(TransactionTestCase):
-
     def setUp(self):
         @tasks.background()
         def my_task(*args, **kwargs):
             pass
+
         self.my_task = my_task
 
     def test_repeat(self):
         repeat_until = timezone.now() + timedelta(weeks=1)
         old_task = self.my_task(
-            'test-repeat',
-            foo='bar',
+            "test-repeat",
+            foo="bar",
             repeat=Task.HOURLY,
             repeat_until=repeat_until,
             verbose_name="Test repeat",
@@ -738,7 +715,7 @@ class RepetitionTestCase(TransactionTestCase):
     def test_repetition_in_future(self):
         repeat_until = timezone.now() + timedelta(weeks=1)
         old_task = self.my_task(
-            'test-repetition',
+            "test-repetition",
             repeat=Task.HOURLY,
             repeat_until=repeat_until,
             verbose_name="Test repetition in future",
@@ -760,18 +737,17 @@ class RepetitionTestCase(TransactionTestCase):
 
 
 class QuerySetManagerTestCase(TransactionTestCase):
-
     def setUp(self):
         @tasks.background()
         def succeeding_task():
-            return 0/1
+            return 0 / 1
 
         @tasks.background()
         def failing_task():
-            return 0/0
+            return 0 / 0
 
-        self.user1 = User.objects.create_user(username='bob', email='bob@example.com', password='12345')
-        self.user2 = User.objects.create_user(username='bob2', email='bob@example.com', password='12345')
+        self.user1 = User.objects.create_user(username="bob", email="bob@example.com", password="12345")
+        self.user2 = User.objects.create_user(username="bob2", email="bob@example.com", password="12345")
         self.task_all = succeeding_task()
         self.task_user = succeeding_task(creator=self.user1)
         self.failing_task_all = failing_task()
@@ -811,7 +787,6 @@ class QuerySetManagerTestCase(TransactionTestCase):
 
 
 class PriorityTestCase(TransactionTestCase):
-
     def setUp(self):
         @tasks.background()
         def mytask():
@@ -843,20 +818,19 @@ class PriorityTestCase(TransactionTestCase):
 
 
 class LoggingTestCase(TransactionTestCase):
-
     def setUp(self):
         @tasks.background()
         def succeeding_task():
-            return 0/1
+            return 0 / 1
 
         @tasks.background()
         def failing_task():
-            return 0/0
+            return 0 / 0
 
         self.succeeding_task = succeeding_task
         self.failing_task = failing_task
 
-    @patch('background_task.tasks.logger')
+    @patch("background_task.tasks.logger")
     def test_success_logging(self, mock_logger):
         self.succeeding_task()
         run_next_task()
@@ -864,7 +838,7 @@ class LoggingTestCase(TransactionTestCase):
         self.assertFalse(mock_logger.error.called)
         self.assertFalse(mock_logger.critical.called)
 
-    @patch('background_task.tasks.logger')
+    @patch("background_task.tasks.logger")
     def test_error_logging(self, mock_logger):
         self.failing_task()
         run_next_task()
@@ -874,16 +848,16 @@ class LoggingTestCase(TransactionTestCase):
 
 
 class DatabaseOutageTestCase(TransactionTestCase):
-
     def setUp(self):
         @tasks.background()
         def my_task(*args, **kwargs):
             pass
+
         self.my_task = my_task
 
-    @patch('background_task.tasks.logger')
+    @patch("background_task.tasks.logger")
     def test_dropped_db_connection(self, mock_logger):
-        self.my_task() # Entered into database successfully
+        self.my_task()  # Entered into database successfully
 
         cursor_wrapper = Mock()
         cursor_wrapper.side_effect = OperationalError

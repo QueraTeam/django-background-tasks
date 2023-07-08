@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import signal
 import platform
 
@@ -6,7 +5,7 @@ TTW_SLOW = [0.5, 1.5]
 TTW_FAST = [0.0, 0.1]
 
 
-class SignalManager(object):
+class SignalManager:
     """Manages POSIX signals."""
 
     kill_now = False
@@ -14,7 +13,7 @@ class SignalManager(object):
 
     def __init__(self):
         # Temporary workaround for signals not available on Windows
-        if platform.system() == 'Windows':
+        if platform.system() == "Windows":
             signal.signal(signal.SIGTERM, self.exit_gracefully)
         else:
             signal.signal(signal.SIGTSTP, self.exit_gracefully)

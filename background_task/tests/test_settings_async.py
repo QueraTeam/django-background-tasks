@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
-from .test_settings import *
+from .test_settings import *  # noqa
 
 BACKGROUND_TASK_RUN_ASYNC = True

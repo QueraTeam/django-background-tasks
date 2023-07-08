@@ -22,7 +22,7 @@ Install from PyPI:
 
 .. code-block:: sh
 
-    pip install django-background-tasks
+    pip install git+https://github.com/QueraTeam/django-background-tasks
 
 Add to INSTALLED_APPS:
 
@@ -136,7 +136,7 @@ If you run the command ``process_tasks`` with the option ``--queue <queue_name>`
 Scheduling the same task twice
 ==============================
 
-Normally, when you schedule the exact same task twice, it will also be executed twice. If you want to remove existing tasks with the same parameters, you can set the parameter `remove_existing_tasks` to `True`. Only tasks that are pending (not in execution) will be removed. 
+Normally, when you schedule the exact same task twice, it will also be executed twice. If you want to remove existing tasks with the same parameters, you can set the parameter `remove_existing_tasks` to `True`. Only tasks that are pending (not in execution) will be removed.
 
 .. code-block:: python
 
@@ -220,8 +220,6 @@ Anyone and everyone is welcome to contribute. Please take a moment to review the
 .. _DelayedJob: http://github.com/tobi/delayed_job
 .. _supervisord: http://supervisord.org/
 .. _this: https://github.com/lilspikey/django-background-task
-.. _compat:  https://github.com/arteria/django-compat
-.. _django-compat:  https://github.com/arteria/django-compat
 .. _25: https://github.com/arteria/django-background-tasks/issues/25
 .. _here: https://github.com/hnakamur/django-background-tasks-example/
 .. _niceness: https://en.wikipedia.org/wiki/Nice_(Unix)

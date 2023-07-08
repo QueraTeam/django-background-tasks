@@ -25,5 +25,6 @@ Contributors
 * Aleksandr Levchuk (alevchuk)
 * Kai-Lun Huang (kaibaooo)
 * cedricfarinazzo
+* QueraTeam
 
 Your name could stand here :)
