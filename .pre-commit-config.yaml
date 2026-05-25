@@ -2,16 +2,16 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: "1.14.0"
+    rev: "1.30.0"
     hooks:
       - id: django-upgrade
-        args: [--target-version, "4.2"]
+        args: [--target-version, "5.2"]
 
   - repo: https://github.com/asottile/pyupgrade
     rev: "v2.38.0"
     hooks:
       - id: pyupgrade
-        args: [--py38-plus]
+        args: [--py310-plus]
 
   - repo: https://github.com/PyCQA/autoflake # configuration in pyproject.toml
     rev: "v1.5.3"
