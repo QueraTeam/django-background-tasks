@@ -8,6 +8,7 @@ import sys
 from django.db.utils import OperationalError
 from django.utils import timezone
 from django.apps import apps
+from django.utils.module_loading import module_has_submodule
 from background_task.exceptions import BackgroundTaskError
 from background_task.models import Task
 from background_task.settings import app_settings
@@ -327,16 +328,6 @@ def autodiscover():
     """
     Autodiscover tasks.py files in much the same way as admin app
     """
-    import imp
-
     for app_config in apps.get_app_configs():
-        try:
-            app_path = import_module(app_config.name).__path__
-        except (AttributeError, ImportError):
-            continue
-        try:
-            imp.find_module("tasks", app_path)
-        except ImportError:
-            continue
-
-        import_module("%s.tasks" % app_config.name)
+        if module_has_submodule(app_config.module, "tasks"):
+            import_module(f"{app_config.name}.tasks")

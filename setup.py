@@ -16,6 +16,7 @@ setup(
     packages=find_packages(exclude=["ez_setup"]),
     include_package_data=True,
     install_requires=open("requirements.txt").read().splitlines(),
+    python_requires=">=3.10",
     zip_safe=True,
     classifiers=classifiers,
 )
